@@ -94,7 +94,7 @@ export class CDPClient {
   }
 
   async connect(): Promise<void> {
-    const maxRetries = 10;
+    const maxRetries = 3;
     let delay = 500;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
