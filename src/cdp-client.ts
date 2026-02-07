@@ -100,7 +100,30 @@ export class CDPClient {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         console.error(`[relay-inspect] Connecting to Chrome at ${config.host}:${config.port} (attempt ${attempt}/${maxRetries})...`);
-        this.client = await CDP({ host: config.host, port: config.port });
+
+        // Smart target selection: prefer localhost dev servers, then real web pages
+        const targets = await CDP.List({ host: config.host, port: config.port });
+        const pageTargets = targets.filter((t: { type: string }) => t.type === "page");
+        const skipPrefixes = ["devtools://", "chrome://", "chrome-extension://"];
+        const webPages = pageTargets.filter(
+          (t: { url: string }) =>
+            (t.url.startsWith("http://") || t.url.startsWith("https://")) &&
+            !skipPrefixes.some((prefix) => t.url.startsWith(prefix))
+        );
+        // Prefer localhost/127.0.0.1 (likely the dev server)
+        const preferred = webPages.find(
+          (t: { url: string }) =>
+            t.url.startsWith("http://localhost") || t.url.startsWith("http://127.0.0.1")
+        ) ?? webPages[0] ?? pageTargets[0];
+
+        if (preferred) {
+          console.error(`[relay-inspect] Selected target: ${preferred.url}`);
+          this.client = await CDP({ host: config.host, port: config.port, target: preferred.id });
+        } else {
+          console.error(`[relay-inspect] No page targets found, using default target.`);
+          this.client = await CDP({ host: config.host, port: config.port });
+        }
+
         this.connected = true;
         console.error(`[relay-inspect] Connected to Chrome.`);
 
