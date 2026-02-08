@@ -5,7 +5,9 @@ An MCP server that bridges AI coding agents and Chrome DevTools Protocol, giving
 ## Architecture
 
 ```
-AI Coding Agent  ←→  Relay Inspect (MCP over stdio)  ←→  Chrome (CDP over WebSocket)
+                                                    ┌─ Chrome (CDP over WebSocket)
+AI Coding Agent  ←→  Relay Inspect (MCP over stdio) ─┤
+                                                    └─ Dev Servers (child processes)
 ```
 
 - MCP server built with `@modelcontextprotocol/sdk`, communicates with the AI coding agent over stdio
