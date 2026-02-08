@@ -63,6 +63,10 @@ Add to your Claude Code MCP config (`.claude/settings.json` or project `.mcp.jso
 | `get_network_requests` | Return captured network requests and responses | `filter` (URL substring), `clear` (bool, default: true) |
 | `get_elements` | Query the DOM with a CSS selector and return matching elements' outer HTML | `selector` (string), `limit` (number, default: 10) |
 | `wait_and_check` | Wait N seconds then return new console output captured during the wait | `seconds` (number, default: 2) |
+| `start_server` | Start a dev server or background process and capture its output | `id` (string), `command` (string), `args` (string[]), `cwd` (string), `env` (object) |
+| `get_server_logs` | Read stdout/stderr output from a managed server process | `id` (string), `clear` (bool, default: true) |
+| `stop_server` | Stop a running managed server process | `id` (string) |
+| `list_servers` | List all managed server processes and their status | — |
 
 ## Configuration
 
@@ -72,6 +76,7 @@ Add to your Claude Code MCP config (`.claude/settings.json` or project `.mcp.jso
 | `CHROME_DEBUG_HOST` | `localhost` | Chrome debugging host |
 | `CONSOLE_BUFFER_SIZE` | `500` | Max console entries to buffer |
 | `NETWORK_BUFFER_SIZE` | `200` | Max network requests to buffer |
+| `SERVER_LOG_BUFFER_SIZE` | `1000` | Max log entries per managed server |
 
 ## Development
 

@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { cdpClient } from "./cdp-client.js";
+import { serverManager } from "./server-manager.js";
 
 const server = new McpServer({
   name: "relay-inspect",
@@ -241,6 +242,87 @@ server.tool(
           2,
         ),
       }],
+    };
+  },
+);
+
+// --- Tool: start_server ---
+
+server.tool(
+  "start_server",
+  "Start a dev server or background process and capture its output",
+  {
+    id: z.string().describe("Unique identifier for this server (e.g. 'dev', 'api')"),
+    command: z.string().describe("Command to run (e.g. 'npm', 'npx', 'make')"),
+    args: z
+      .array(z.string())
+      .optional()
+      .default([])
+      .describe("Command arguments (e.g. ['run', 'dev'])"),
+    cwd: z
+      .string()
+      .optional()
+      .describe("Working directory for the command (defaults to server's cwd)"),
+    env: z
+      .record(z.string())
+      .optional()
+      .describe("Additional environment variables"),
+  },
+  async ({ id, command, args, cwd, env }) => {
+    const result = serverManager.start({ id, command, args, cwd, env });
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
+
+// --- Tool: get_server_logs ---
+
+server.tool(
+  "get_server_logs",
+  "Read stdout/stderr output from a managed server process",
+  {
+    id: z.string().describe("Server identifier passed to start_server"),
+    clear: z
+      .boolean()
+      .optional()
+      .default(true)
+      .describe("Clear the log buffer after reading (default: true)"),
+  },
+  async ({ id, clear }) => {
+    const result = serverManager.getLogs(id, clear);
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
+
+// --- Tool: stop_server ---
+
+server.tool(
+  "stop_server",
+  "Stop a running managed server process",
+  {
+    id: z.string().describe("Server identifier passed to start_server"),
+  },
+  async ({ id }) => {
+    const result = await serverManager.stop(id);
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
+
+// --- Tool: list_servers ---
+
+server.tool(
+  "list_servers",
+  "List all managed server processes and their status",
+  {},
+  async () => {
+    const servers = serverManager.list();
+    return {
+      content: [{ type: "text", text: JSON.stringify({ servers }, null, 2) }],
     };
   },
 );

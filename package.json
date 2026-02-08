@@ -8,17 +8,20 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsx src/index.ts",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "test": "vitest run"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
     "chrome-remote-interface": "^0.33.2",
+    "tree-kill": "^1.2.2",
     "zod": "^3.24.2"
   },
   "devDependencies": {
     "@types/node": "^22.13.1",
     "tsup": "^8.4.0",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.18"
   }
 }
