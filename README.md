@@ -1,6 +1,6 @@
 # Relay Inspect
 
-Stop pasting console logs and screenshots into your CLI. Relay Inspect gives Claude Code direct access to your browser — so it can see what you see, verify its own changes, and debug without asking you to copy-paste.
+Stop pasting console logs and screenshots into your CLI. Relay Inspect gives Claude Code direct access to your browser—so it can see what you see, verify its own changes, and debug without asking you to copy-paste.
 
 It connects to Chrome DevTools Protocol and exposes browser state as MCP tools: console output, network requests, DOM queries, screenshots, and JavaScript evaluation. Claude edits your code, the dev server reloads, and Claude checks the result itself.
 
@@ -38,7 +38,7 @@ npm run build
 google-chrome --remote-debugging-port=9222
 ```
 
-If Chrome is already running, you'll need to quit it first — the debugging port must be set at launch.
+If Chrome is already running, you'll need to quit it first—the debugging port must be set at launch.
 
 ### Register as an MCP server
 
