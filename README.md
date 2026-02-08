@@ -1,4 +1,4 @@
-# Relay Inspect
+# Relay Inspect MCP
 
 Stop copying and pasting console logs, server errors and screenshots into your CLI. Relay Inspect gives Claude Code direct access to your browser—so it can see what you see, verify its own changes, and debug without asking you to copy-paste.
 
