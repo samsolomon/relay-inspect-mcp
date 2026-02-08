@@ -1,17 +1,21 @@
 # Relay Inspect MCP
 
-Stop copying and pasting console logs, server errors and screenshots into your CLI. Relay Inspect gives your AI coding agent direct access to your browser—so it can see what you see, verify its own changes, and debug without asking you to copy-paste.
+Stop copying and pasting console logs, server errors and screenshots into your CLI. Relay Inspect gives your AI coding agent direct access to your browser—so it can see what you see, verify its own changes, and debug without asking you to copy and paste.
 
-Relay Inspect connects to Chrome DevTools Protocol and your dev server, exposing browser state as MCP tools—console output, network requests, DOM queries, screenshots, and JS evaluation. Your agent edits code, the dev server hot reloads, and the agent verifies the result itself.
+Relay Inspect is lightweight tool for designers and engineers who want to spend more time building and less time debugging.
 
 ```
                                                     ┌─ Chrome (CDP over WebSocket)
 AI Coding Agent  ←→  Relay Inspect (MCP over stdio) ─┤
                                                     └─ Dev Servers (child processes)
 ```
+
+Relay Inspect is a bridge between the Chrome DevTools Protocol, your dev server and your agent. It exposes browser state as MCP tools—console output, network requests, DOM queries and screenshots. Your agent edits code, the dev server hot reloads, and the agent verifies the result itself.
+
+
 ## Tools
 
-Your agent gets access to the following tools automatically via MCP—no configuration beyond the initial setup.
+Your agent gets access to the following tools automatically via MCP:
 
 ### Browser Inspection
 
