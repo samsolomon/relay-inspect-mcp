@@ -1,13 +1,13 @@
 # Relay Inspect
 
-Stop pasting console logs and screenshots into your CLI. Relay Inspect gives Claude Code direct access to your browser—so it can see what you see, verify its own changes, and debug without asking you to copy-paste.
+Stop pasting console logs and screenshots into your CLI. Relay Inspect gives your AI coding agent direct access to your browser—so it can see what you see, verify its own changes, and debug without asking you to copy-paste.
 
-It connects to Chrome DevTools Protocol and exposes browser state as MCP tools: console output, network requests, DOM queries, screenshots, and JavaScript evaluation. Claude edits your code, the dev server reloads, and Claude checks the result itself.
+It connects to Chrome DevTools Protocol and exposes browser state as MCP tools: console output, network requests, DOM queries, screenshots, and JavaScript evaluation. Your agent edits code, the dev server reloads, and the agent checks the result itself.
 
 ```
-                                                 ┌─ Chrome (CDP over WebSocket)
-Claude Code  ←→  Relay Inspect (MCP over stdio) ─┤
-                                                 └─ Dev Servers (child processes)
+                                                    ┌─ Chrome (CDP over WebSocket)
+AI Coding Agent  ←→  Relay Inspect (MCP over stdio) ─┤
+                                                    └─ Dev Servers (child processes)
 ```
 
 ## Setup
@@ -42,7 +42,7 @@ If Chrome is already running, you'll need to quit it first—the debugging port 
 
 ### Register as an MCP server
 
-Add to your Claude Code MCP config (`.claude/settings.json` or project `.mcp.json`):
+**Claude Code** — add to `.mcp.json` or `.claude/settings.json`:
 
 ```json
 {
@@ -50,7 +50,29 @@ Add to your Claude Code MCP config (`.claude/settings.json` or project `.mcp.jso
     "relay-inspect": {
       "command": "node",
       "args": ["dist/index.js"],
-      "cwd": "/absolute/path/to/relay-inspect"
+      "cwd": "/absolute/path/to/relay-inspect-mcp"
+    }
+  }
+}
+```
+
+**Codex CLI:**
+
+```bash
+codex mcp add relay-inspect -- node /absolute/path/to/relay-inspect-mcp/dist/index.js
+```
+
+**opencode** — add to `opencode.json`:
+
+```json
+{
+  "mcp": {
+    "relay-inspect": {
+      "type": "local",
+      "command": "node",
+      "args": ["dist/index.js"],
+      "env": {},
+      "cwd": "/absolute/path/to/relay-inspect-mcp"
     }
   }
 }

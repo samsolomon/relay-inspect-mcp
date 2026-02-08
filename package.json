@@ -1,7 +1,7 @@
 {
   "name": "relay-inspect",
   "version": "0.1.0",
-  "description": "MCP server bridging Claude Code and Chrome DevTools Protocol",
+  "description": "MCP server bridging AI coding agents and Chrome DevTools Protocol",
   "type": "module",
   "main": "dist/index.js",
   "bin": "dist/index.js",
