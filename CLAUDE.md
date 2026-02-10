@@ -83,8 +83,11 @@ Console and network events should be buffered in memory with sensible limits:
 
 ## Connection Management
 
-- Connect to Chrome on startup, retry with backoff if Chrome isn't running yet
-- Handle Chrome disconnection gracefully — don't crash the server, queue a reconnect
+- **Lazy connect** — Don't connect at startup. On each tool call, `ensureConnected()` checks for an active connection and connects if needed
+- **Liveness check** — Before reusing an existing connection, verify it's alive with a lightweight `Browser.getVersion()` call. If stale, reconnect
+- **Fresh discovery** — Always discover Chrome targets via HTTP (`CDP.List()` hitting `http://host:port/json/list`), never cache WebSocket URLs. This handles Chrome restarts transparently
+- **Retry with backoff** — Connection attempts retry 3 times with 500ms initial delay, doubling each attempt
+- **Graceful disconnect** — On Chrome disconnect, null out the client and let the next tool call reconnect lazily. No background reconnect timers
 - Log connection status to stderr (MCP uses stdout for protocol, stderr for diagnostics)
 - Support configurable port via environment variable: `CHROME_DEBUG_PORT=9222`
 

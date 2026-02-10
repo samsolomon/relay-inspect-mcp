@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import CDP from "chrome-remote-interface";
 import { cdpClient } from "./cdp-client.js";
 import { serverManager } from "./server-manager.js";
 
@@ -11,12 +12,17 @@ const server = new McpServer({
 
 // --- Helper ---
 
-function notConnectedError(): string {
-  return JSON.stringify(
-    { error: "Chrome is not connected. Launch Chrome with --remote-debugging-port=9222 and retry." },
-    null,
-    2,
-  );
+function connectionError(err: unknown): { content: [{ type: "text"; text: string }] } {
+  const message = err instanceof Error ? err.message : String(err);
+  return {
+    content: [{
+      type: "text",
+      text: JSON.stringify({
+        error: `Chrome connection failed: ${message}`,
+        hint: "Ensure Chrome is running with --remote-debugging-port=9222",
+      }, null, 2),
+    }],
+  };
 }
 
 // --- Tool: evaluate_js ---
@@ -26,11 +32,12 @@ server.tool(
   "Execute a JavaScript expression in the browser and return the result",
   { expression: z.string().describe("JavaScript expression to evaluate") },
   async ({ expression }) => {
-    if (!cdpClient.isConnected()) {
-      return { content: [{ type: "text", text: notConnectedError() }] };
+    let client: CDP.Client;
+    try {
+      client = await cdpClient.ensureConnected();
+    } catch (err) {
+      return connectionError(err);
     }
-
-    const client = cdpClient.getClient()!;
 
     try {
       const result = await client.Runtime.evaluate({
@@ -80,8 +87,10 @@ server.tool(
       .describe("Clear the buffer after reading (default: true)"),
   },
   async ({ clear }) => {
-    if (!cdpClient.isConnected()) {
-      return { content: [{ type: "text", text: notConnectedError() }] };
+    try {
+      await cdpClient.ensureConnected();
+    } catch (err) {
+      return connectionError(err);
     }
 
     const entries = clear
@@ -114,8 +123,10 @@ server.tool(
       .describe("Clear the buffer after reading (default: true)"),
   },
   async ({ filter, clear }) => {
-    if (!cdpClient.isConnected()) {
-      return { content: [{ type: "text", text: notConnectedError() }] };
+    try {
+      await cdpClient.ensureConnected();
+    } catch (err) {
+      return connectionError(err);
     }
 
     let entries = clear
@@ -149,11 +160,12 @@ server.tool(
       .describe("Maximum number of elements to return (default: 10)"),
   },
   async ({ selector, limit }) => {
-    if (!cdpClient.isConnected()) {
-      return { content: [{ type: "text", text: notConnectedError() }] };
+    let client: CDP.Client;
+    try {
+      client = await cdpClient.ensureConnected();
+    } catch (err) {
+      return connectionError(err);
     }
-
-    const client = cdpClient.getClient()!;
 
     try {
       const doc = await client.DOM.getDocument({ depth: 0 });
@@ -220,8 +232,10 @@ server.tool(
       .describe("Seconds to wait before checking (default: 2)"),
   },
   async ({ seconds }) => {
-    if (!cdpClient.isConnected()) {
-      return { content: [{ type: "text", text: notConnectedError() }] };
+    try {
+      await cdpClient.ensureConnected();
+    } catch (err) {
+      return connectionError(err);
     }
 
     // Drain stale entries
@@ -267,11 +281,12 @@ server.tool(
       .describe("Compression quality 0-100 (jpeg only)"),
   },
   async ({ format, quality }) => {
-    if (!cdpClient.isConnected()) {
-      return { content: [{ type: "text", text: notConnectedError() }] };
+    let client: CDP.Client;
+    try {
+      client = await cdpClient.ensureConnected();
+    } catch (err) {
+      return connectionError(err);
     }
-
-    const client = cdpClient.getClient()!;
 
     try {
       const params: { format: string; quality?: number } = { format };
@@ -310,11 +325,12 @@ server.tool(
       .describe("Bypass cache (hard refresh) when true (default: false)"),
   },
   async ({ ignoreCache }) => {
-    if (!cdpClient.isConnected()) {
-      return { content: [{ type: "text", text: notConnectedError() }] };
+    let client: CDP.Client;
+    try {
+      client = await cdpClient.ensureConnected();
+    } catch (err) {
+      return connectionError(err);
     }
-
-    const client = cdpClient.getClient()!;
 
     try {
       await client.Page.reload({ ignoreCache });
@@ -343,11 +359,12 @@ server.tool(
     requestId: z.string().describe("Request ID from get_network_requests output"),
   },
   async ({ requestId }) => {
-    if (!cdpClient.isConnected()) {
-      return { content: [{ type: "text", text: notConnectedError() }] };
+    let client: CDP.Client;
+    try {
+      client = await cdpClient.ensureConnected();
+    } catch (err) {
+      return connectionError(err);
     }
-
-    const client = cdpClient.getClient()!;
 
     // Find the request summary from the buffer
     const entries = cdpClient.networkRequests.peek();
@@ -484,8 +501,7 @@ server.tool(
 async function main(): Promise<void> {
   console.error("[relay-inspect] Starting MCP server...");
 
-  // Connect to Chrome (non-blocking — server starts regardless)
-  await cdpClient.connect();
+  // No eager Chrome connection — ensureConnected() handles it lazily on first tool call
 
   // Start MCP stdio transport
   const transport = new StdioServerTransport();

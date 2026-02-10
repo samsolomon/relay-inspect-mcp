@@ -73,8 +73,7 @@ interface PendingRequest {
 
 export class CDPClient {
   private client: CDP.Client | null = null;
-  private connected = false;
-  private reconnecting = false;
+  private connectingPromise: Promise<CDP.Client> | null = null;
 
   readonly consoleLogs: CircularBuffer<ConsoleEntry>;
   readonly networkRequests: CircularBuffer<NetworkEntry>;
@@ -85,15 +84,52 @@ export class CDPClient {
     this.networkRequests = new CircularBuffer<NetworkEntry>(config.networkBufferSize);
   }
 
-  isConnected(): boolean {
-    return this.connected;
+  /**
+   * Returns an active CDP client, connecting or reconnecting as needed.
+   * Throws if Chrome is unreachable after retries.
+   */
+  async ensureConnected(): Promise<CDP.Client> {
+    // Fast path: existing connection is alive
+    if (this.client) {
+      if (await this.isAlive(this.client)) {
+        return this.client;
+      }
+      // Stale connection — clean up before reconnecting
+      console.error("[relay-inspect] Stale connection detected, reconnecting...");
+      this.cleanup();
+    }
+
+    // Deduplicate concurrent connection attempts
+    if (this.connectingPromise) {
+      return this.connectingPromise;
+    }
+
+    this.connectingPromise = this.connect();
+    try {
+      return await this.connectingPromise;
+    } finally {
+      this.connectingPromise = null;
+    }
   }
 
-  getClient(): CDP.Client | null {
-    return this.client;
+  private async isAlive(client: CDP.Client): Promise<boolean> {
+    try {
+      await client.Browser.getVersion();
+      return true;
+    } catch {
+      return false;
+    }
   }
 
-  async connect(): Promise<void> {
+  private cleanup(): void {
+    if (this.client) {
+      try { this.client.close(); } catch { /* already closed */ }
+      this.client = null;
+    }
+    this.pendingRequests.clear();
+  }
+
+  private async connect(): Promise<CDP.Client> {
     const maxRetries = 3;
     let delay = 500;
 
@@ -101,7 +137,7 @@ export class CDPClient {
       try {
         console.error(`[relay-inspect] Connecting to Chrome at ${config.host}:${config.port} (attempt ${attempt}/${maxRetries})...`);
 
-        // Smart target selection: prefer localhost dev servers, then real web pages
+        // Discover targets via HTTP (fresh every time — never cached)
         const targets = await CDP.List({ host: config.host, port: config.port });
         const pageTargets = targets.filter((t: { type: string }) => t.type === "page");
         const skipPrefixes = ["devtools://", "chrome://", "chrome-extension://"];
@@ -116,22 +152,26 @@ export class CDPClient {
             t.url.startsWith("http://localhost") || t.url.startsWith("http://127.0.0.1")
         ) ?? webPages[0] ?? pageTargets[0];
 
+        let client: CDP.Client;
         if (preferred) {
           console.error(`[relay-inspect] Selected target: ${preferred.url}`);
-          this.client = await CDP({ host: config.host, port: config.port, target: preferred.id });
+          client = await CDP({ host: config.host, port: config.port, target: preferred.id });
         } else {
           console.error(`[relay-inspect] No page targets found, using default target.`);
-          this.client = await CDP({ host: config.host, port: config.port });
+          client = await CDP({ host: config.host, port: config.port });
         }
 
-        this.connected = true;
+        this.client = client;
         console.error(`[relay-inspect] Connected to Chrome.`);
 
-        await this.enableDomains();
-        this.attachEventHandlers();
-        this.attachDisconnectHandler();
-        return;
+        await this.enableDomains(client);
+        this.attachEventHandlers(client);
+        this.attachDisconnectHandler(client);
+        return client;
       } catch (err) {
+        // Clean up any partial connection from this attempt
+        this.cleanup();
+
         const message = err instanceof Error ? err.message : String(err);
         console.error(`[relay-inspect] Connection attempt ${attempt} failed: ${message}`);
 
@@ -142,28 +182,27 @@ export class CDPClient {
       }
     }
 
-    console.error(`[relay-inspect] Could not connect to Chrome after ${maxRetries} attempts. Server will start without Chrome connection.`);
+    throw new Error(
+      `Could not connect to Chrome at ${config.host}:${config.port} after ${maxRetries} attempts. ` +
+      `Ensure Chrome is running with --remote-debugging-port=${config.port}.`
+    );
   }
 
-  private async enableDomains(): Promise<void> {
-    if (!this.client) return;
-
+  private async enableDomains(client: CDP.Client): Promise<void> {
     await Promise.all([
-      this.client.Runtime.enable(),
-      this.client.Network.enable({}),
-      this.client.DOM.enable({}),
-      this.client.Page.enable(),
-      this.client.Log.enable(),
+      client.Runtime.enable(),
+      client.Network.enable({}),
+      client.DOM.enable({}),
+      client.Page.enable(),
+      client.Log.enable(),
     ]);
 
     console.error("[relay-inspect] CDP domains enabled: Runtime, Network, DOM, Page, Log");
   }
 
-  private attachEventHandlers(): void {
-    if (!this.client) return;
-
+  private attachEventHandlers(client: CDP.Client): void {
     // Console API calls (console.log, console.warn, console.error, etc.)
-    this.client.Runtime.consoleAPICalled((params) => {
+    client.Runtime.consoleAPICalled((params) => {
       const message = params.args
         .map((arg) => {
           if (arg.type === "string") return arg.value as string;
@@ -182,7 +221,7 @@ export class CDPClient {
     });
 
     // Browser-level log entries
-    this.client.Log.entryAdded((params) => {
+    client.Log.entryAdded((params) => {
       this.consoleLogs.push({
         timestamp: new Date(params.entry.timestamp).toISOString(),
         level: params.entry.level,
@@ -191,7 +230,7 @@ export class CDPClient {
     });
 
     // Network: request will be sent
-    this.client.Network.requestWillBeSent((params) => {
+    client.Network.requestWillBeSent((params) => {
       this.pendingRequests.set(params.requestId, {
         id: params.requestId,
         url: params.request.url,
@@ -202,7 +241,7 @@ export class CDPClient {
     });
 
     // Network: response received
-    this.client.Network.responseReceived((params) => {
+    client.Network.responseReceived((params) => {
       const pending = this.pendingRequests.get(params.requestId);
       if (!pending) return;
 
@@ -222,7 +261,7 @@ export class CDPClient {
     });
 
     // Network: loading failed
-    this.client.Network.loadingFailed((params) => {
+    client.Network.loadingFailed((params) => {
       const pending = this.pendingRequests.get(params.requestId);
       if (!pending) return;
 
@@ -242,21 +281,12 @@ export class CDPClient {
     });
   }
 
-  private attachDisconnectHandler(): void {
-    if (!this.client) return;
-
-    this.client.on("disconnect", () => {
+  private attachDisconnectHandler(client: CDP.Client): void {
+    client.on("disconnect", () => {
       console.error("[relay-inspect] Chrome disconnected.");
-      this.connected = false;
       this.client = null;
-
-      if (!this.reconnecting) {
-        this.reconnecting = true;
-        setTimeout(async () => {
-          this.reconnecting = false;
-          await this.connect();
-        }, 3000);
-      }
+      this.pendingRequests.clear();
+      // No auto-reconnect — next ensureConnected() call will reconnect lazily
     });
   }
 }
