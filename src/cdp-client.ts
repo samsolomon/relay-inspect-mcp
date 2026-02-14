@@ -195,6 +195,11 @@ export class CDPClient {
     try {
       return await this.connectToExistingChrome();
     } catch (firstErr) {
+      // CDP_WS_URL bypasses auto-launch — if it failed, don't try anything else
+      if (process.env.CDP_WS_URL) {
+        throw firstErr;
+      }
+
       // Chrome not reachable — try auto-launch if enabled
       if (!isAutoLaunchEnabled()) {
         throw firstErr;
@@ -224,6 +229,22 @@ export class CDPClient {
   }
 
   private async connectToExistingChrome(): Promise<CDP.Client> {
+    const wsUrl = process.env.CDP_WS_URL;
+    if (wsUrl) {
+      console.error(`[relay-inspect] Connecting directly via CDP_WS_URL: ${wsUrl}`);
+      try {
+        const client = await CDP({ target: wsUrl });
+        this.client = client;
+        await this.enableDomains(client);
+        this.attachEventHandlers(client);
+        this.attachDisconnectHandler(client);
+        return client;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        throw new Error(`Could not connect via CDP_WS_URL (${wsUrl}): ${message}`);
+      }
+    }
+
     const maxRetries = 3;
     let delay = 500;
 

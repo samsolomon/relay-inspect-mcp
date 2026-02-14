@@ -114,6 +114,8 @@ Chrome is auto-launched on first tool call if it isn't already running. To disab
 | `CHROME_DEBUG_HOST` | `localhost` | Chrome debugging host |
 | `CHROME_AUTO_LAUNCH` | `true` | Auto-launch Chrome if not already running |
 | `CHROME_PATH` | _(auto-detect)_ | Override Chrome/Chromium executable path |
+| `CHROME_LAUNCH_URL` | _(none)_ | URL to open when Chrome is auto-launched (e.g. `http://localhost:1420`) |
+| `CDP_WS_URL` | _(none)_ | Connect directly to a CDP WebSocket URL, skipping Chrome discovery |
 | `CONSOLE_BUFFER_SIZE` | `500` | Max console entries to buffer |
 | `NETWORK_BUFFER_SIZE` | `200` | Max network requests to buffer |
 | `SERVER_LOG_BUFFER_SIZE` | `1000` | Max log entries per managed server |

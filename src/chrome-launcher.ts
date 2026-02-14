@@ -105,12 +105,21 @@ export async function launchChrome(port: number, host = "localhost"): Promise<Ch
   console.error(`[relay-inspect]   --remote-debugging-port=${port}`);
   console.error(`[relay-inspect]   --user-data-dir=${userDataDir}`);
 
-  const child = spawn(chromePath, [
+  const launchUrl = process.env.CHROME_LAUNCH_URL;
+
+  const args = [
     `--remote-debugging-port=${port}`,
     "--no-first-run",
     "--no-default-browser-check",
     `--user-data-dir=${userDataDir}`,
-  ], {
+  ];
+
+  if (launchUrl) {
+    args.push(launchUrl);
+    console.error(`[relay-inspect]   Launch URL: ${launchUrl}`);
+  }
+
+  const child = spawn(chromePath, args, {
     stdio: "ignore",
     detached: true,
   });
